@@ -7,7 +7,7 @@ import concurrent.futures
 
 INFEASIBLE = 100000
 
-def generateInstances(N = 20, m = 10, cls = 1, heterogeneous=False):
+def generateInstances(N = 20, m = 10, V = (100,100,100), cls = 1, heterogeneous=False):
     # N in 20, 50, 80, 100, 120
     # m in 0, 20, 25, 30, 35, 40   
     def ur(lb, ub):
@@ -23,11 +23,11 @@ def generateInstances(N = 20, m = 10, cls = 1, heterogeneous=False):
         else:
             case = random.choice([i for i in range(1,6) if i != cls])
 
-        L=100; W=100; H=100
+        L, W, H= V
         if case == 1:
-            p.append(ur(1, 1/2*L))
-            q.append(ur(2/3*W, W))
-            r.append(ur(2/3*H, H))
+            p.append(ur(1/6*L, 1/4*L))
+            q.append(ur(1/6*W, 1/4*W))
+            r.append(ur(1/6*H, 1/4*H))
         elif case == 2:
             p.append(ur(2/3*L, L))
             q.append(ur(1, 1/2*W))
@@ -50,13 +50,13 @@ def generateInstances(N = 20, m = 10, cls = 1, heterogeneous=False):
         W = [ur(50, 200) for j in range(m)]
         H = [ur(50, 200) for j in range(m)]
     else:
-        L = [100]*m
-        W = [100]*m
-        H = [100]*m
+        L = [L]*m
+        W = [W]*m
+        H = [H]*m
     return range(N), range(m), p, q, r, L, W, H
 
-def generateInputs(N, m):
-    N, M, p,q,r, L,W,H =generateInstances(N, m)
+def generateInputs(N, m, V = (100,100,100)):
+    N, M, p,q,r, L,W,H =generateInstances(N, m, V)
     inputs = {'v':list(zip(p, q, r)), 'V':list(zip(L, W, H))}
     return inputs
 
@@ -97,7 +97,7 @@ class Bin():
                 if verbose:
                     print('\n*Elimination*:\nRemove overlapped EMS:',list(map(tuple, EMS)),'\nEMSs left:', list(map( lambda x : list(map(tuple,x)), self.EMSs)))
                 
-                # six new EMSs in 3 dimensions
+                # six new EMSs in 3 dimensionsc
                 x1, y1, z1 = EMS[0]; x2, y2, z2 = EMS[1]
                 x3, y3, z3 = ems[0]; x4, y4, z4 = ems[1]
                 new_EMSs = [
@@ -323,8 +323,7 @@ class PlacementProcedure():
             load = self.Bins[k].load()
             if load < leastLoad:
                 leastLoad = load
-                
-        return self.num_opend_bins + leastLoad
+        return self.num_opend_bins + leastLoad%1
     
 
 
@@ -372,16 +371,10 @@ class BRKGA():
     
     def cal_fitness(self, population):
         fitness_list = list()
-        if self.multiProcess:
-            
-            with concurrent.futures.ProcessPoolExecutor() as executor:
-                results = executor.map(self.decoder, population)
-                fitness_list = [result for result in results]
-        
-        else:
-            for solution in population:
-                decoder = PlacementProcedure(self.inputs, solution)
-                fitness_list.append(decoder.evaluate())
+
+        for solution in population:
+            decoder = PlacementProcedure(self.inputs, solution)
+            fitness_list.append(decoder.evaluate())
         return fitness_list
 
     def partition(self, population, fitness_list):
@@ -391,14 +384,16 @@ class BRKGA():
     def crossover(self, elite, non_elite):
         # chance to choose the gene from elite and non_elite for each gene
         return [elite[gene] if np.random.uniform(low=0.0, high=1.0) < self.eliteCProb else non_elite[gene] for gene in range(self.num_gene)]
-
+    
     def mating(self, elites, non_elites):
         # biased selection of mating parents: 1 elite & 1 non_elite
         num_offspring = self.num_individuals - self.num_elites - self.num_mutants
         return [self.crossover(random.choice(elites), random.choice(non_elites)) for i in range(num_offspring)]
+    
+    def mutants(self):
+        return np.random.uniform(low=0.0, high=1.0, size=(self.num_mutants, self.num_gene))
         
-    def fit(self, expected_y, patient = 4, multiProcess = False, verbose = False):
-        self.multiProcess = multiProcess
+    def fit(self, patient = 4, verbose = False):
         # Initial population & fitness
         population = np.random.uniform(low=0.0, high=1.0, size=(self.num_individuals, self.num_gene))
         fitness_list = self.cal_fitness(population)
@@ -422,15 +417,6 @@ class BRKGA():
         best_iter = 0
         for g in range(self.num_generations):
 
-            # stop when expected y reached
-            if math.floor(best_fitness) <= expected_y:
-                self.used_bins = math.floor(best_fitness)
-                self.best_fitness = best_fitness
-                self.solution = best_solution
-                if verbose:
-                    print('Early stop at iter', g, '(reached, {} {} y ={})'.format(math.floor(best_fitness), best_fitness,expected_y))
-                return 'success'
-
             # early stopping
             if g - best_iter > patient:
                 self.used_bins = math.floor(best_fitness)
@@ -448,12 +434,12 @@ class BRKGA():
             
             # Select elite group
             elites, non_elites = self.partition(population, fitness_list)
-    
-            # Generate mutants
-            mutants = np.random.uniform(low=0.0, high=1.0, size=(self.num_mutants, self.num_gene))
             
             # Biased Mating & Crossover
             offsprings = self.mating(elites, non_elites)
+            
+            # Generate mutants
+            mutants = self.mutants()
 
             # New Population & fitness
             population = np.concatenate((elites,mutants,offsprings), axis=0)
@@ -478,34 +464,3 @@ class BRKGA():
         self.best_fitness = best_fitness
         self.solution = best_solution
         return 'feasible'
-
-# import pandas as pd
-# import time
-
-# if __name__ == '__main__':
-#     e = pd.DataFrame(columns = ['N', 'size', 'i','time_multi','time_serial'])
-#     for n in [50, 70, 100]:
-#         print(n)
-#         for i in range(5):
-
-#             time_multi = time.time()
-#             inputs = generateInputs(n,int(n/2))
-#             model = BRKGA(inputs, num_generations = 10, num_individuals=n*10, num_elites =n*1, num_mutants = n*1.5, eliteCProb = 0.7)
-#             model.fit(multiProcess=True, verbose = False)
-#             time_multi = time.time() - time_multi
-
-#             time_serial = time.time()
-#             inputs = generateInputs(n,int(n/2))
-#             model = BRKGA(inputs, num_generations = 10, num_individuals=n*10, num_elites =n*1, num_mutants = n*1.5, eliteCProb = 0.7)
-#             model.fit(multiProcess=False, verbose = False)
-#             time_serial = time.time() - time_serial
-
-#             e = e.append({
-#                 'N': n,
-#                 'size': n*10,
-#                 'i': i,
-#                 'time_multi': time_multi,
-#                 'time_serial': time_serial
-#             }, ignore_index=True)
-#     e.to_csv('experiments.csv', index = False)
-#     print('FINISh')
