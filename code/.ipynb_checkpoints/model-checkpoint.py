@@ -3,59 +3,29 @@ import copy
 import random
 import numpy as np
 import pandas as pd
-import concurrent.futures
 
 INFEASIBLE = 100000
 
-def generateInstances(N = 20, m = 10, V = (100,100,100), cls = 1, heterogeneous=False):
-    # N in 20, 50, 80, 100, 120
-    # m in 0, 20, 25, 30, 35, 40   
+
+def generateInstances(N = 20, m = 10, V = (100,100,100)):
     def ur(lb, ub):
         # u.r. is an abbreviation of "uniformly random". [Martello (1995)]
         value = random.uniform(lb, ub)
         return int(value) if value >= 1 else 1
     
+    L, W, H = V
     p = []; q = []; r = []
     for i in range(N):
-        # decide instance class
-        if random.random() <= 0.6:
-            case = cls
-        else:
-            case = random.choice([i for i in range(1,6) if i != cls])
-
-        L, W, H= V
-        if case == 1:
-            p.append(ur(1/6*L, 1/4*L))
-            q.append(ur(1/6*W, 1/4*W))
-            r.append(ur(1/6*H, 1/4*H))
-        elif case == 2:
-            p.append(ur(2/3*L, L))
-            q.append(ur(1, 1/2*W))
-            r.append(ur(2/3*H, H))
-        elif case == 3:
-            p.append(ur(2/3*L, L))
-            q.append(ur(2/3*W, W))
-            r.append(ur(1, 1/2*H))
-        elif case == 4:
-            p.append(ur(1/2*L, L))
-            q.append(ur(1/2*W, W))
-            r.append(ur(1/2*H, H))
-        elif case == 5:
-            p.append(ur(1, 1/2*L))
-            q.append(ur(1, 1/2*W))
-            r.append(ur(1, 1/2*H))
+        p.append(ur(1/6*L, 1/4*L))
+        q.append(ur(1/6*W, 1/4*W))
+        r.append(ur(1/6*H, 1/4*H))
     
-    if heterogeneous:
-        L = [ur(50, 200) for j in range(m)]
-        W = [ur(50, 200) for j in range(m)]
-        H = [ur(50, 200) for j in range(m)]
-    else:
-        L = [L]*m
-        W = [W]*m
-        H = [H]*m
+    L = [L]*m
+    W = [W]*m
+    H = [H]*m
     return range(N), range(m), p, q, r, L, W, H
 
-def generateInputs(N, m, V = (100,100,100)):
+def generateInputs(N, m, V):
     N, M, p,q,r, L,W,H =generateInstances(N, m, V)
     inputs = {'v':list(zip(p, q, r)), 'V':list(zip(L, W, H))}
     return inputs
@@ -101,11 +71,8 @@ class Bin():
                 x1, y1, z1 = EMS[0]; x2, y2, z2 = EMS[1]
                 x3, y3, z3 = ems[0]; x4, y4, z4 = ems[1]
                 new_EMSs = [
-                    [np.array((x1, y1, z1)), np.array((x3, y2, z2))],
                     [np.array((x4, y1, z1)), np.array((x2, y2, z2))],
-                    [np.array((x1, y1, z1)), np.array((x2, y3, z2))],
                     [np.array((x1, y4, z1)), np.array((x2, y2, z2))],
-                    [np.array((x1, y1, z1)), np.array((x2, y2, z3))],
                     [np.array((x1, y1, z4)), np.array((x2, y2, z2))]
                 ]
                 
@@ -333,12 +300,6 @@ class BRKGA():
         self.multiProcess = multiProcess
         # Input
         self.inputs =  copy.deepcopy(inputs)
-        
-        # increase container number for improvement
-        y_num = len(self.inputs['V'])
-        for i in range(y_num):
-            self.inputs['V'].append(self.inputs['V'][0])
-        
         self.N = len(inputs['v'])
         
         # Configuration
@@ -355,7 +316,6 @@ class BRKGA():
         self.solution = None
         self.best_fitness = -1
         self.history = {
-            'max' :[],
             'mean': [],
             'min': []
         }
@@ -363,11 +323,6 @@ class BRKGA():
     def decoder(self, solution):
         placement = PlacementProcedure(self.inputs, solution)
         return placement.evaluate()
-    
-    def cal_fitness(self, population):
-        fitness_list = list()
-        
-        return fitness_list
     
     def cal_fitness(self, population):
         fitness_list = list()
@@ -379,7 +334,7 @@ class BRKGA():
 
     def partition(self, population, fitness_list):
         sorted_indexs = np.argsort(fitness_list)
-        return population[sorted_indexs[:self.num_elites]], population[sorted_indexs[self.num_elites:]]
+        return population[sorted_indexs[:self.num_elites]], population[sorted_indexs[self.num_elites:]], fitness_list[sorted_indexs[:self.num_elites]]
     
     def crossover(self, elite, non_elite):
         # chance to choose the gene from elite and non_elite for each gene
@@ -398,8 +353,6 @@ class BRKGA():
         population = np.random.uniform(low=0.0, high=1.0, size=(self.num_individuals, self.num_gene))
         fitness_list = self.cal_fitness(population)
         
-        
-
         if verbose:
             print('\nInitial Population:')
             print('  ->  shape:',population.shape)
@@ -410,7 +363,6 @@ class BRKGA():
         best_solution = population[np.argmin(fitness_list)]
         self.history['min'].append(np.min(fitness_list))
         self.history['mean'].append(np.mean(fitness_list))
-        self.history['max'].append(np.max(fitness_list))
         
         
         # Repeat generations
@@ -425,15 +377,9 @@ class BRKGA():
                 if verbose:
                     print('Early stop at iter', g, '(timeout)')
                 return 'feasible'
-
-            # infeasible
-            if np.min(fitness_list) == INFEASIBLE:
-                if verbose:
-                    print('INFEASIBLE', np.min(fitness_list))
-                return 'infeasible'
             
             # Select elite group
-            elites, non_elites = self.partition(population, fitness_list)
+            elites, non_elites, elite_fitness_list = self.partition(population, fitness_list)
             
             # Biased Mating & Crossover
             offsprings = self.mating(elites, non_elites)
@@ -442,9 +388,11 @@ class BRKGA():
             mutants = self.mutants()
 
             # New Population & fitness
-            population = np.concatenate((elites,mutants,offsprings), axis=0)
+            offspring = np.concatenate((mutants,offsprings), axis=0)
+            offspring_fitness_list = self.cal_fitness(offspring)
             
-            fitness_list = self.cal_fitness(population)
+            population = np.concatenate((elites, offsprings), axis = 0)
+            fitness_list = elite_fitness_list + offspring_fitness_list
             
             # Update Best Fitness
             for fitness in fitness_list:
@@ -455,7 +403,6 @@ class BRKGA():
             
             self.history['min'].append(np.min(fitness_list))
             self.history['mean'].append(np.mean(fitness_list))
-            self.history['max'].append(np.max(fitness_list))
             
             if verbose:
                 print("Generation :", g, ' \t(Best Fitness:', best_fitness,')')
