@@ -485,7 +485,8 @@ def cal_fitness(population)
 ```
 where _decoder_ is the instance of _placement_procedure_. Feel free to customerize your class for placement procedure, or compare it with mine.
 
-# Visualization
+<!-- # Visualization
+
 
 In a instance with 100 boxes and container with shape of (600, 250, 250),  
 
@@ -496,4 +497,4 @@ In a instance with 100 boxes and container with shape of (600, 250, 250),
 
 
 # Conclusion
-
+ -->
