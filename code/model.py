@@ -195,16 +195,16 @@ class PlacementProcedure():
             
             if self.verbose:
                 print('Select EMS:', list(map(tuple, selected_EMS)))
-                
+            
             # Box orientation selection
             BO = self.selecte_box_orientaion(self.VBO[i], box, selected_EMS)
-                
+
             # elimination rule for different process
             min_vol, min_dim = self.elimination_rule(items_sorted[i+1:])
-            
+   
             # pack the box to the bin & update state information
             self.Bins[selected_bin].update(self.orient(box, BO), selected_EMS, min_vol, min_dim)
-            
+
             if self.verbose:
                 print('Add box to Bin',selected_bin)
                 print(' -> EMSs:',self.Bins[selected_bin].get_EMSs())
@@ -255,7 +255,7 @@ class PlacementProcedure():
         if self.verbose:
             print('Select VBO:', selectedBO,'  (BOs',BOs, ', vector', VBO,')')
         return selectedBO
-    
+         
     def fitin(self, box, EMS):
         # all dimension fit
         for d in range(3):
@@ -334,7 +334,7 @@ class BRKGA():
 
     def partition(self, population, fitness_list):
         sorted_indexs = np.argsort(fitness_list)
-        return population[sorted_indexs[:self.num_elites]], population[sorted_indexs[self.num_elites:]], fitness_list[sorted_indexs[:self.num_elites]]
+        return population[sorted_indexs[:self.num_elites]], population[sorted_indexs[self.num_elites:]], np.array(fitness_list)[sorted_indexs[:self.num_elites]]
     
     def crossover(self, elite, non_elite):
         # chance to choose the gene from elite and non_elite for each gene
@@ -391,9 +391,10 @@ class BRKGA():
             offspring = np.concatenate((mutants,offsprings), axis=0)
             offspring_fitness_list = self.cal_fitness(offspring)
             
-            population = np.concatenate((elites, offsprings), axis = 0)
-            fitness_list = elite_fitness_list + offspring_fitness_list
-            
+            population = np.concatenate((elites, mutants, offsprings), axis = 0)
+            #fitness_list = elite_fitness_list + offspring_fitness_list
+            fitness_list = self.cal_fitness(population)
+
             # Update Best Fitness
             for fitness in fitness_list:
                 if fitness < best_fitness:

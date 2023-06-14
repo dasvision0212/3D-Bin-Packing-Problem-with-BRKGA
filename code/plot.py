@@ -6,14 +6,17 @@ from mpl_toolkits.mplot3d import Axes3D
 from itertools import combinations
 
 class plot_3D:
-    def __init__(self, V = (100, 100, 100), alpha = 0.2, style = 'default'):
+    def __init__(self, V = (100, 100, 100), title = 'choose box',alpha = 0.4, style = 'default'):
         if style == 'xkcd':
             plt.xkcd()
         else:
             plt.style.use(style)
         self.fig = plt.figure()
-        self.ax = self.fig.gca(projection='3d')
+        self.ax = self.fig.add_subplot(projection='3d', computed_zorder=False)
+        #self.ax = self.fig.gca(projection='3d')
+        plt.title('BOX-' + title)
         
+        plt.margins(0,0,0)
         self.alpha = alpha
         self.V = V
         self.ax.set_xlim(0, V[1])
@@ -51,18 +54,24 @@ class plot_3D:
         xx, xy, xz = np.meshgrid(x_range, y_range, z_range) # X
         yy, yx, yz = np.meshgrid(y_range, x_range, z_range) # Y
         zx, zz, zy = np.meshgrid(x_range, z_range, y_range) # Z
-        for i in range(2):  
-            self.ax.plot_wireframe(xx[i], xy[i], xz[i], color=color)
-            self.ax.plot_surface(xx[i], xy[i], xz[i], color=color, alpha=self.alpha)
-            self.ax.plot_wireframe(yx[i], yy[i], yz[i], color=color)
-            self.ax.plot_surface(yx[i], yy[i], yz[i], color=color, alpha=self.alpha)
-            self.ax.plot_wireframe(zx[i], zy[i], zz[i], color=color)
-            self.ax.plot_surface(zx[i], zy[i], zz[i], color=color, alpha=self.alpha)
+        
+        zorder_val = min(z_range)**2 + min(x_range)**2 + min(y_range)**2
+
+        # = (max(z_range) + min(z_range))**2 + (max(x_range) + min(x_range))**2 + (max(y_range) + min(y_range))**2
+        
+        for i in range(2):
+            #zorder_val = np.maximum(xz[i], yz[i], zz[i])  
+            self.ax.plot_wireframe(xx[i], xy[i], xz[i], color=color, zorder = zorder_val)
+            self.ax.plot_surface(xx[i], xy[i], xz[i], color=color, alpha=self.alpha, zorder = zorder_val)
+            self.ax.plot_wireframe(yx[i], yy[i], yz[i], color=color, zorder = zorder_val)
+            self.ax.plot_surface(yx[i], yy[i], yz[i], color=color, alpha=self.alpha, zorder = zorder_val)
+            self.ax.plot_wireframe(zx[i], zy[i], zz[i], color=color, zorder = zorder_val)
+            self.ax.plot_surface(zx[i], zy[i], zz[i], color=color, alpha=self.alpha, zorder = zorder_val)
         
         # Record
-        self.boxes_df = self.boxes_df.append({'box':self.boxes_num, 'sides': sides,
+        self.boxes_df = pd.concat([self.boxes_df ,pd.DataFrame({'box':self.boxes_num, 'sides': sides,
                                               'min_coord':min_coord, 'max_coord': max_coord,
-                                              'color':color}, ignore_index=True)
+                                              'color':color})], ignore_index=True)
         self.boxes_num += 1
     
     def findOverlapping(self, verbose = True):
@@ -86,7 +95,7 @@ class plot_3D:
     
     def show(self, elev = None, azim = None):
         self.ax.view_init(elev=elev, azim=azim)
-        plt.show()
+        plt.show(self.fig)
 
 def plot_history(history, tick = 2):
     for target in ['mean', 'min']:
