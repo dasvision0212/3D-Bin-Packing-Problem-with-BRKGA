@@ -23,15 +23,21 @@
 
 # __Introduction__
 
-This repository is a tutorial for the implementation of __Biased Random Key Genetic Algorithmn for 3D Bin Packing Problem__ based on heuristic and design propsed from the paper _"A biased random key genetic algorithm for 2D and 3D bin packing problems"_  by [Gonçalves & Resende (2013)]("https://www.sciencedirect.com/science/article/abs/pii/S0925527313001837?via%3Dihub"). I wrote this tutorial as a showcase of application for the course "_Operations Research Applications and Implementation_" intructed by professor _Chia-Yen Lee_. It is not for commercial use. If there is any sign of copyright infringement, please inform me as I will remove the repository.
+This repository provides a tutorial on the implementation of the __Biased Random Key Genetic Algorithmn for 3D Bin Packing Problem__. It is inspired by the heuristic and design proposed in the paper _"A biased random key genetic algorithm for 2D and 3D bin packing problems"_  by [Gonçalves & Resende (2013)]("https://www.sciencedirect.com/science/article/abs/pii/S0925527313001837?via%3Dihub"). I created this tutorial as a practical application for the course "Operations Research Applications and Implementation (IM5059 2020-Spring)" taught by Professor Chia-Yen Lee at National Taiwan University. 
+
+(Update in 10.2023)
 
 ## __Outline__
 
-I will first define the problem statement of 3D-bpp. Next, I will introduce the idea of __Biased Random-Key Genetic Algorithmn (BRKGA)__ and __Placement Strategy__ proposed in the paper with code and example. Finally, the visualization for instance solution is presented.
+We'll begin by outlining the problem statement for the __3D Bin Packing Problem (3D-BPP)__, an extension of a classic NP-hard problem of (1D) bin packing problem. Then we'll delve into the Biased Random-Key Genetic Algorithm (BRKGA) and the Placement Strategy as put forth in the aforementioned paper, supplemented with code snippets and illustrative examples. To conclude, we'll showcase visualizations of sample solutions.
+
+__ROLL TO THE END OF EACH CHAPTER IF YOU WANT TO SKIP THE EXPLAINATION__
 
 ## __Prerequisites__
 
-My implementation is entirely based on Python code, with used of default module that can be found in most Python distribution, which means no external library is required. However, the reader should have basic understanding of __genetic algorithmn__, namely the idea of chorosome representation, encoding & decoding process, and evolutionary process. For more details, Tutorialspoint had a great [article](https://www.tutorialspoint.com/genetic_algorithms/genetic_algorithms_quick_guide.htm) as the introduction of GA.
+- Mostly implemented with NumPy that can commonly be found in most Python distributions. No other external libraries is required.
+
+- It is recommended that readers possess a foundational knowledge of genetic algorithms. This includes familiarity with concepts like chromosome representation, encoding and decoding processes, and evolutionary cycle. I recommend reading this [article](https://www.tutorialspoint.com/genetic_algorithms/genetic_algorithms_quick_guide.htm) from Tutorialspoint.
 
 # __Problem Description__
 
@@ -39,16 +45,23 @@ My implementation is entirely based on Python code, with used of default module 
 
 <p style="text-align:center">
   <img src="./resource/images/3dbpp.jpg" />
-  <center>"example of bin packing problem" from <a href="https://www.sciencedirect.com/science/article/abs/pii/S0925527313001837?via%3Dihub">[Gonçalves & Resende (2013)]</a></center>
+  <center>Fig. example of bin packing problem, from <a href="https://www.sciencedirect.com/science/article/abs/pii/S0925527313001837?via%3Dihub">[Gonçalves & Resende (2013)]</a></center>
 </p>
 
-In a three dimensional bin-packing problem, items (or boxes) with different volumes must be orthogonally packed into a set of bins (or containers) with fixed volume, in a way that __minimizes the number of total used bins__. The "three dimensional" means the volumes of each item consist of 3 dimension, namely depth, width and height.
+In 1D bin-packing problem, __items with varying sizes__ are packed into multiple containers (called bins) usually of equal capacity. The primary objective is to __minimize the number of bins used__, which differentiates it from the multiple knapsack problem where the number of bins is fixed.
 
-This problen is strongly __NP-hard__ (as it generalize from 2D-bpp and 1D-bpp, which are also NP-hard), meaning a faster heuristic is prefered even with the existence of a mixed integer programming formulation that can garuantee an optimal solution. Given this idea, the genetic algorithmn, one of the most common heuristic for combinatorial problem, can be applied to slove the problem in acceptable amount of time, though it does not ensures an optimal solution.
+In three dimensional bin-packing problem (3D-BPP), we introduces additional spacial constaints, taking into account the __length, width, height__ of an item. Items with different volumes must be orthogonally packed into fixed size bins __without overlapping__.
 
-## __Input__
+The problem is strongly __NP-hard__, as it generalizes from the 2D-bpp and 1D-bpp, both of which are also NP-hard. This implies that there are no known polynomial-time solutions for this problem. Even though a mixed-integer programming formulation exists that can guarantee an optimal solution, a faster heuristic is often preferred due to the computational intensity of such methods.
 
-In 3D-bpp, there are _n_ rectangular boxes with length in three dimensions _(d, w, h)_, and a fixed-size container where boxes are placed. Without loss of generality, we assume that all boxes to be packed are smaller than the container. For the implementation, simply use an object with two array of 3D vector to denote shape of boxes and containers respectively.
+With this in mind, the __genetic algorithm__, a prevalent heuristic for combinatorial problems, can be employed to address the problem in a reasonable timeframe. However, it's important to note that this approach does __not guarantee an optimal solution__.
+
+## __Problem Definition__
+
+- A set of _n_ rectangular items (boxes). Each item _i_ has dimensions $(d_i, w_i, h_i)$, representing width, height, and depth.
+- A set of identical bins (containers) with demensions $(W_j, H_j, D_j)$ represeting dimensions of $j_{th}$ bin.
+
+For this implementation, we use two array of tuples to denote dimensions of boxes and containers respectively. Here we relax the assumption of equal size container for generalization.
 
 ```python
 inputs: {
@@ -61,7 +74,9 @@ inputs: {
 
 # __Methodology__
 
-The algorithmn for this article is composed of two parts, a __Biased Random-Key Genetic Algorithmn (BRKGA)__ to search the solution space, and a heuristic called __placement procedure__ to evalute each solution representation in GA. Briefly speacking, the algorithm encode each solution (packing scenario) by a sequence that can be evaluated by a heuristic, which enables __genetic algorithm__ to find good solution through selection. In this section, the setting of BRKGA and the idea of placement procedure will be discussed. 
+The proposed algorithm consists of two main components: **Biased Random-Key Genetic Algorithm (BRKGA)**, and **placement procedure** heuristic. In essence, the algorithm encodes each solution (or packing scenario) using a sequence/vectors. This encoding allows **genetic algorithm** to search optimal solutions via selection.
+
+In the following section, we will delve into the specifics of the BRKGA settings and the underlying concept of the placement procedure.
 
 <p style="text-align:center">
   <img src="./resource/images/architecture.png" width="400" />
@@ -70,25 +85,34 @@ The algorithmn for this article is composed of two parts, a __Biased Random-Key 
 
 ## __Biased Random-Key Genetic Algorithmn__
 
-The BRKGA, proposed by [Gonçalves & Resende (2011)](https://link.springer.com/article/10.1007/s10732-010-9143-1), is essentially a derivative of genetic algorithm (GA) with extensions of _random-key_ representation and _biased_ selection from population pool. It is worth to notice that in most of the meta-heuristics for 3d-bpp, instead of representing every coordinates of items placed, they are designed to __find the best packing sequence__ (the order in which the items are packed) that follows a rule-based packing procedure like the Deepest Bottom-Left-Fill packing method. In this way, the representation of a solution can be greatly simplified, while empirically obtaining solution with good quality. In addition, the packing sequence can always be mapped to a feasible packing scenario without worrying about coordinates overlapping, meaning there is no need for chromosome-repairing in this GA implementation.
+The Biased Random-Key Genetic Algorithm (BRKGA) is fundamentally a variation of the genetic algorithm (GA) that incorporates the features of random-key representation and biased selection from the population pool.
 
-Next, I will explain the idea of Random Key, Biased Selection for BRKGA in the following pragragh.
+> **Note:** It's important to highlight that in most 3D-BPP papers, rather than detailing every coordinate of placed items, they focus on determining the __optimal packing sequence__ (the specific order in which items are packed). This often follows a rule-based packing procedure, such as the Deepest Bottom-Left-Fill packing method.
+>
+> By adopting these approaches, the solution's representation becomes significantly more streamlined, and, based on empirical evidence, high-quality solutions are often achieved. Furthermore, this packing sequence can invariably be translated into a viable packing scenario, eliminating concerns about coordinate overlaps. Consequently, there's no need for chromosome-repair in a GA iteration. Of course, these rule-based packing prcedure do not gaurantee an optimal way of packinig.
 
 ### __Random-Key Representation__
 
-The random key is a way to encode a chromosome (solution), where the solution are represented as a vector of real numbers within [0, 1]. Let assume the number of items to be packed is _n_. In this implementation, the length of a random key is always _2n_. With _Numpy_’s random number routines, we can easily generate random key representation in 1 line.
+The random key is a way to encode a chromosome (solution) as a vector of real numbers within $[0, 1]$. Let assume there are _n_ items to be placed. The length of a random key will be _2n_. We can initialize an solution as follow:
 
 ```python
 # random key representation
 solution = np.random.uniform(low=0.0, high=1.0, size= 2*n)
+
+# e.g., there are 4 items to be packed, the frist n (=4) values of a random key may look like [0.1, 0.5, 0.6, 0.2] 
 ```
 
-In each solution, the first _n_ genes, named **Box Packing Sequence (BPS)** by the author, represents the order of the _n_ items to be packed, and can be decoded by sorting in ascending order of the corresponding gene values (Fig. 3). We can use the _argsort_ method to obtain the indices of the sorted array.
+In each random-key, the first _n_ genes encode the order of the _n_ items to be packed, which is called **Box Packing Sequence (BPS)**. We decode it by sorting it in ascending order of the corresponding gene values (Fig. 3). In NumPy,  We can use the _argsort_ method to obtain the indices of the sorted array. 
 
 ```python
 # sort by ascending order
 box_packing_sequence = np.argsort(solution[:n])
+
+# e.g., after decoded, the BPS for the above example will be [0, 2, 3, 1].
+# The first box will be packed first, and the third box the last.
 ```
+
+
 
 <p style="text-align:center">
   <img src="./resource/images/BPS.png" />
@@ -99,28 +123,31 @@ box_packing_sequence = np.argsort(solution[:n])
   <center><b>Fig. 4.</b> Box orientation</center>
 </p>
 
-The last _n_ genes, named **Vector of Box Orientations (VBO)**, represent the orientation of the boxes. In the setting of three dimension, there are total six orientations (Fig. 4) to place a box. In some scenario, some boxes cannot be placed upside down, or limited by the vertical orientation, so to speak. To consider all possible orientations, the decoding of each gene (called _BO_) in _VBO_ is defined as
+The last _n_ genes of a random key encode the orientation of items - **Vector of Box Orientations (VBO)**. In three dimension setting, there are in total __six__ orientations (Fig. 4) to place a item. In some scenarios, items are limited by the vertical orientation (cannot be placed upside down). We can create a circular mapping for possible orientation using Python list. The decoding of each gene (called _BO_) in _VBO_ is defined as:
+
 <p align="center">
   <b>selected orientation = BOs⌈BO×nBOs⌉</b><br>
 </p>
 
-, where _BO_ is the given value of _VBO_, _BOs_ denotes all possible orientations allowed for that box, and _nBOs_ is the number of _BOs_. Or in code:
+, where _BO_ is the last _n_ genes, _BOs_ denotes all possible orientations allowed for that box, and _nBOs_ is the number of _BOs_.
+
 ```python
 # value of BO
 BO = 0.82
 
 # posiible orientations
-BOs = [1,2,3,4,5,6]
+BOs = [1,2,3,4,5,6]  # remove 2, 5 to remove vertical orientations
 
 # selected orientation
 orientation = BOs[math.ceil(BO*len(BOs))] # orientation = 5
 ```
+This mapping will ensure a _BO_ value corresponds to a possible orientation.
 
-In summary, _BRKGA_ use a vector of real numbers between [0,1] to represent a solution, which consist of __box packing sequence (BPS)__ with length of _n_, and __Vector of Box Orientations (VBO)__ also with length _n_. The former represents the order to pack the boxes, while representing the oreientation of corresponding box. With a packing procedure that will be explained later, a solution can converted to a real packing scenario whose quality can be further evaluated.
+In summary, _BRKGA_ use a vector of real numbers to encode a solution. The first _n_ genes represent __box packing sequence (BPS)__, the order to pack the items. The rest _n_ genes represent __Vector of Box Orientations (VBO)__, the oreientation of those corresponding items. With a packing procedure that will be explained later, this vector can always be converted to a real packing scenario.
 
 ### __Biased Selection__
 
-The most noticeable difference between BRKGA and other genetic algorithmn implementations are the fact that the population in each generation is partitioned into two group, __Elite__ and __Non-Elite__, based on the fitness value. This biased selection will greatly influence operations in GA such as crossover and survivor selection that will be explained latter.  For now, let's define a function to partition the population into elite and non-elite group based on the fitness value and the number of elite individual denoted as _num_elites_.
+In each generation, the population is partitioned into two group, __Elite__ and __Non-Elite__, based on the fitness value. This biased selection will greatly influence operations in GA such as crossover and survivor selection that will be explained latter.  For now, let's define a function to partition the population into elite and non-elite group.
 
 ```python
 def partition(population, fitness_list, num_elites):
@@ -130,9 +157,11 @@ def partition(population, fitness_list, num_elites):
     return population[sorted_indexs[:num_elites]], population[sorted_indexs[num_elites:]]
 ```
 
+The _fitness_list_ is the list of fitness value for all solutions after evaluation. After sorting, we can simply use NumPy indexing to partition two group.
+
 ### __Crossover__
 
-In _BRKGA_, the __parameterized uniform crossover__ is used to implement the crossover operation. For each mating, there will always be one parent chosen from the _Elite_ and the other from  the _Non-Elite_. Then, it will create an offspring whose _i-th_ gene is inherited the _i-th_ gene from either elite parent or non-elite one based on a prespecified probality denoted as _eliteCProb_. Generally, this probability will favor the inheritance from the elite parent. For the implementation, I define a function to select parents, and a function to perform crossver given the selected parents.
+In _BRKGA_, the __parameterized uniform crossover__ is used to implement the crossover operation. For each mating, we always chose one parent from the _Elite_ group and the other from  the _Non-Elite_. Each offspring inherited _i-th_ gene from either elite or non-elite based on a prespecified probality denoted as _eliteCProb_. This probability control the extend of favoring the inheritance from the elite parent.
 
 ```python
 def crossover(elite, non_elite):
@@ -158,11 +187,11 @@ def mating(self, elites, non_elites):
     return offspring_list
 ```
 
-The number of offsprings (from crossover) depends on the number of individuals in each population (_num_individuals_) and the number of mutants (_num_mutants_) that will be explained in the next section.
+The number of offsprings (from crossover) is the complement ofthe number of individuals (_num_individuals_) and the number of mutants (_num_mutants_).
 
 ### __Mutants__
 
-Instead of performing mutation operation (e.g. swap mutation), the authors create new individuals that are randomly generated in each generation as a mean to add randomness into the population. Given the number of mutants, denoted as _num_mutants_, we can define a function to create new individuals like how we initialize the population.
+Instead of performing common mutation operation (e.g. swap mutation), the paper create entire new individuals to increase random noise into the population (complex problem require more noise, in a sense). Given the number of mutants, denoted as _num_mutants_, we can define a function to create new individuals like how we initialize the population.
 
 ```python
 def mutation(num_mutants):
@@ -172,7 +201,7 @@ def mutation(num_mutants):
 
 ### __Evolutionary Process__
 
-For each generation, all elite individuals are kept for the next population without any modification. In addition, mutants and offsprings created from crossover are directly added to the next population. Since the problem is about minimizing the number of used bins, we will update the minimum fitness value in each generation. Together, we can define the function for evolutionary process as:
+In each generation, all elite individuals survive and move to the next population without any modification; mutants and offsprings are also added to the next population. Then we will update the  fitness value in each generation:
 
 ```python
 def evolutionary_process(n, num_generations, num_individuals, num_elites, num_mutants):
@@ -210,34 +239,50 @@ def evolutionary_process(n, num_generations, num_individuals, num_elites, num_mu
                 best_fitness = fitness
 ```
 
-The only element has not yet been mentioned is how to evaluate the fitness value of a solution (with function _cal_fitness_). Remember a solution tells us the order (_BPS_)  and the orientations (_VBO_) of the boxes to be packed. In order to evaluate the fitness function for each solution, we simply try to pack those boxes by following exactly the info provided in the solution, and then count how many containers are used. Therefore, we require a __system to pack boxes in three dimension into fixed-size containers by following the instruction of a solution__. This system is called _Placement Procedure_ and will be discussed in the following section.
+We have now discussed most mechanisms related to GA operations. The remaining piece of the puzzle is understanding how the fitness function is evaluated.
+
+Even with the same packing order (BPS) and orientation (VBO), **different packing strategies can yield varying results** (e.g., you can prioritize putting items in the corder, or finishing a stack first; Like playing Tetris, you have different strategies). In the paper, we adopted _Placement Procedure_, a way to pack the items.
 
 ## __Placement Strategy__
 
-In terms of implementation and intricacy, perhaps the placement procedure is more complex than GA. First, it requires a model to reflect the rectangle boxes and containers in three dimentions with while identifying condition of overlapping and out-of-bound. Second, a heuristic rule to place the boxes must be define. Last, two compoment mentioned above and other states must all be put into integration. Let's start with the model that is specifically designed for 3D dimension placement in this problem.
+In terms of implementation and intricacy, the placement procedure is actually more complex than GA. In previous chapter, we use packing order to represent a packing scenario. In the evaulation phase, we still requires a coordinate system to reflect overlapping and out-of-bound condition for every items placed. The subsequent chapter will explain a placement method proposed in the paper.
+
+First we explain how we model the coordinate system, and determine overlapping condition.
 
 ### __Maximal-Spaces Representation__
 
-The maximal-space is a concept to represent a rectangular space by its _minimum_ and _maximum coordinats_, which works only if the object is placed orthogonally to three dimensions as in this problem. For example, a box with shape of (10, 20, 30) placed in the origin can be encoded as:
+The maximal-space is a way to represent a rectangular space by its _minimum_ and _maximum coordinats_. This only works if all objects is placed orthogonally, as in this problem. For example, a box with shape of (10, 20, 30) placed in the origin can be encoded as:
+
 ```python
-MS = [(0,0,0), (10,20,30)] # [minimum coordinats, maximum coordinates]
+# placed at origin (0,0)
+MS = [(0,0,0), (10,20,30)]  # [min coordinats, max coordinates] or essentially [min coordinates, min coordinates + shape]
 ```
 
-The heuristic — __difference process (DP)__ — developed by [Lai and Chan (1997)](https://www.sciencedirect.com/science/article/abs/pii/S0360835296002057) keeps track of boxes placement by recording available spaces left in the container called _Empty Maximal-Spaces (EMSs)_. With the use of _EMSs_, we can see box placement in a container as the collection of following processes:
+We can model the position of each item using this representation.
+
+### __Empty Mximal-Space__
+
+Besides items, We need to model the remaining space. The heuristic — __difference process (DP)__ — developed by [Lai and Chan (1997)](https://www.sciencedirect.com/science/article/abs/pii/S0360835296002057) keeps track available spaces in the container after each box placement. The set of available empty space is called _Empty Maximal-Spaces (EMSs)_. The algorithm goes as follow:
   
-  1. Select a _EMS_ from existing _EMSs_.
-  2. Generate new _EMSs_ from the intersection of the box with existing EMSs and remove the intersected _EMSs_.
-  3. Remove _EMSs_ which have infinite thinness (no length in any dimension), or are totally inscribed by other _EMSs_
-  4. Remove _EMSs_ which are smaller than existing boxes to be placed.
+If one chose to place box at _EMS_ from existing _EMSs_ ($EMS \in EMSs$). 
+  1. Generate 6 new _EMS_ from the intersection of the box with existing EMS and remove the intersected _EMS_ from the set _EMSs_.
+  2. Remove new _EMS_ that have infinite thinness (no length in any dimension), or are totally inscribed by other _EMSs_
+  3. Remove _EMSs_ which are smaller than existing boxes to be placed.
 
 For each pair of box (demote its space as _ems_) and intersected _EMS_ in _step 2._,  we can compute new  _EMSs_ as follow. Notice that there will be six empty space generated by the intersection in three dimentional space.
 
 ```python
+# Remember we use Maximal Space representation
+# EMS = [
+#  (x1, y1, z1),  ## minimum coordinates
+#  (x2, y2, z2),  ## minimum coordinates
+#]
+
 # minimem & maximum coordinates for intersected EMS
 x1, y1, z1 = EMS[0]
 x2, y2, z2 = EMS[1]
 
-# minimem & maximum coordinates for space of box
+# minimem & maximum coordinates box to be placed
 x3, y3, z3 = ems[0]
 x4, y4, z4 = ems[1]
 
@@ -252,7 +297,7 @@ new_EMSs = [
 ]
 ```
 
-In practice, however, we will place the minimum coordinate of box against that of the selected _EMS_ (Fig. 5), because interspace between two boxes will usually result in unfit gap for others boxes. As the result, we will rewrite the prpcess as:
+In practice, we will place the minimum coordinates of box against the minimum coordiantes of the selected _EMS_ (Fig. 5), or in other word, corner to corner. If we chose to place at abitrary space within the EMS, new EMSs often poorly disjointed and lead to inefficient space utilization. Also, if we chose to place corner to corner, we can omit 3 operations of finding intersections demonstrated as follow.
 
 ```python
 # minimem & maximum coordinates for intersected EMS
@@ -275,7 +320,7 @@ new_EMSs = [
   <center><b>Fig. 5.</b> Example of Difference Process (rectangle with bold lines are the new EMSs resulting from the placement of the grey box)</center>
 </p>
 
-To check if a _EMS_ overlaps or is totally inscribed by another _EMS_, we can define the following functions to compute two conditions. (In the implmentation, every _EMS_ is converted into _numpy_ array to receive the property of element-wise boolean operations)
+To check if a _EMS_ overlaps or is totally inscribed by another _EMS_, we can use following functions. (every _EMS_ is converted into _numpy_ array to ultilize element-wise boolean operations)
 
 ```python
 def overlapped(EMS_1, EMS_2):
@@ -289,7 +334,7 @@ def inscribed(EMS_1, EMS_2):
     return False
 ```
 
-In sum, the psuedo function for dfference process of a box placement with selected EMS can be written as:
+Combining all above, the psuedo function for dfference process of a box placement with selected EMS can be written as:
 
 ```python
 def difference_process(box, selected_EMS, existing_EMSs):
@@ -335,13 +380,13 @@ def difference_process(box, selected_EMS, existing_EMSs):
                   existing_EMSs.append(new_EMS)
 ```
 
-Now we have a way to update the state of container and boxes in 3D space after each box placement. Next, I will introduce a placement heuristic to decide which EMS to select for each box placement in a sequence of boxes. 
+Now we have a way to update the state of container and items in 3D coordinate for each box placement. Next, we introduce a placement heuristic to decide which EMS to select for each box placement.
 
 ### __Placement Heuristic__
 
-The _Back-Bottom-Left-Fill Heuristic_ is a rule to pack a sequence of boxes, in which it will always select the empty space with smallest minimum coordinates to fit the box. The heuristic aims to place box in the deepest space for each iteration in hope that all boxes will be placed tight together in the end.
+The _Back-Bottom-Left-Fill Heuristic_ is a rule to pack a sequence of boxes, in which it will always select the empty space with smallest minimum coordinates to fit the box. The heuristic aims to place box in the deepest space for each iteration in hope that all boxes will be placed tight together.
 
-As observed by [Liu and Teng (1999)](https://www.sciencedirect.com/science/article/abs/pii/S0377221797004372), some optimal solutions could not be constructed by this heuritic. To deal with this problem, [Gonçalves & Resende (2013)]("https://www.sciencedirect.com/science/article/abs/pii/S0925527313001837?via%3Dihub") developed an improved version of the placement heuristic rule named _Distance to the Front-Top-Right Corner (DFTRC)_. As the title suggests, the heuristc will always place the box in the empty space such that it maximizes the distance of the box to the maximal coordinates of the container (Fig. 6).
+As observed by [Liu and Teng (1999)](https://www.sciencedirect.com/science/article/abs/pii/S0377221797004372), some optimal solutions could not be constructed by this heuritic. To deal with this problem, [Gonçalves & Resende (2013)]("https://www.sciencedirect.com/science/article/abs/pii/S0925527313001837?via%3Dihub") developed an improved version of the placement heuristic rule named _Distance to the Front-Top-Right Corner (DFTRC)_. As the title suggests, the heuristc will always place the box in the empty space such that it maximizes the distance of the box to the maximal coordinates of the container (Fig. 6). You can think of it define "deepest" using maximum distance from the top instead of minimum distance to the corner.
 
 <p style="text-align:center">
   <img src="./resource/images/DFTRC.png" />
@@ -376,7 +421,7 @@ def DFTRC(box, existing_EMSs):
                     selected_EMS = EMS
     return selected_EMS
 ```
-where _orient_ is a helper function to orient box given the orientation and _fitin_ is another to check whether the space can fit in a EMS:
+where _orient_ is a helper function to orient box given the orientation and _fitin_ to check whether the space can fit in a EMS:
 
 ```python
 def orient(box, BO):
@@ -399,7 +444,7 @@ def fitin(self, box, EMS):
 
 ### __Placement Procedure__
 
-The _DFTRC_ placement rule is used to select a _EMS_ from existing _EMSs_ for box placement. In a solution, this placement rule will be used _n_ times to place _n_ boxes following the order of _BPS_. If the box cannot fit in the existing _EMSs_, we will open a new empty container and resume the ongoing placement process. With consideration of _VBO_, we can finally write down the __placement procedure__ as following code. Let _boxes_ be the set of boxes , _Bins_ be the set of containers, and _num_opend_bins_ be the number of currently opened containers.
+We applied _DFTRC_ placement rule when selecting _EMS_ from existing _EMSs_ for box placement. For each solution, this placement rule is called  _n_ times to place _n_ boxes following the order of _BPS_. If the box cannot fit in the existing _EMSs_, __we will open a new empty container and resume the ongoing placement process__. We can finally finish the __placement procedure__. Let _boxes_ be the set of boxes , _Bins_ be the set of containers, and _num_opend_bins_ be the number of currently opened containers.
 
 ```python
 def placement_procedure(BPS, VBO):
@@ -453,7 +498,12 @@ def selecte_box_orientaion(BO, box, selected_EMS):
     return BOs[math.ceil(VBO*len(BOs))-1]
 ```
 
-Now, do you remember why I introduce _placement procedure_ in the first place? We need a system to pack a sequence of boxes into containers in 3D space, so we can count the number of used containers as the fitness value for the given solution. In the paper, the fitness value is modified with a small adjustment — an additional term of the load of the least laoded container (Eq. 1). The rationale for this measure is that if two solutions use the same number of containers, they will result in the same fitness value. Nevertheless, the one having the least load in the least loaded bin will more likely have more compact placement in other containers, thus, more potential for improvement.
+
+### Adjusted Fitness Value
+
+One can simply use the number of used bins as the fitness value for each packing scenario. This is totally appropriate and alligns to our objective of minimizing number of used bins. However,  ㄍpaper suggested we can improve the packing "quality" by macking a small adjustment to the fitness value.
+
+Besides number of used bins, we add the percentage ultilization of the least laoded container (Eq. 1) to the fintess value. The rationale for this measure is that given two solutions that have same number of containers, the one having the least load in the least loaded bin will more likely have more compact placement in other containers, thus, more potential for improvement.
 
 <p style="text-align:center">
   <img src="https://latex.codecogs.com/svg.latex?\Large&space;aNB=NB%2B\frac{LeastLoad}{BinCapacity}"/>
